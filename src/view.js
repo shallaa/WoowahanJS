@@ -109,7 +109,13 @@ viewMount = function() {
     viewDidMount = this.viewDidMount.bind(this, $dom);
   }
 
-  const middlewares = app.getMiddleware(MIDDLEWARE.VIEW, MIDDLEWARE_PROTOCOL.AFTER);
+  let forceExcludeMiddleware = false;
+
+  if ('forceExcludeMiddleware' in this) {
+    forceExcludeMiddleware = (typeof this.forceExcludeMiddleware === 'function') ? this.forceExcludeMiddleware() : this.forceExcludeMiddleware;
+  }
+
+  const middlewares = forceExcludeMiddleware ? [] : app.getMiddleware(MIDDLEWARE.VIEW, MIDDLEWARE_PROTOCOL.AFTER);
 
   MiddlewareRunner.run(middlewares, MIDDLEWARE_PROTOCOL.AFTER, [this], function() {
     ['viewDidMount', 'mount'].forEach(type => {
@@ -133,7 +139,13 @@ View = Backbone.View.extend({
       this.setModel(model);
     }
 
-    const middlewares = app.getMiddleware(MIDDLEWARE.VIEW, MIDDLEWARE_PROTOCOL.BEFORE);
+    let forceExcludeMiddleware = false;
+
+    if ('forceExcludeMiddleware' in this) {
+      forceExcludeMiddleware = (typeof this.forceExcludeMiddleware === 'function') ? this.forceExcludeMiddleware() : this.forceExcludeMiddleware;
+    }
+
+    const middlewares = forceExcludeMiddleware ? [] : app.getMiddleware(MIDDLEWARE.VIEW, MIDDLEWARE_PROTOCOL.BEFORE);
 
     MiddlewareRunner.run(middlewares, MIDDLEWARE_PROTOCOL.BEFORE, [this], function() {
       viewMount.apply(this);
@@ -228,7 +240,7 @@ View = Backbone.View.extend({
   },
 
   updateView(container, ChildView, ...args) {
-    if (!arguments.length) {
+    if (arguments.length === 0) {
       this.close(false);
 
       viewMount.apply(this);
@@ -271,7 +283,13 @@ View = Backbone.View.extend({
       view.setModel.apply(view, Array.prototype.concat.call(args, { silent: true }));
       view.container = viewContainer;
 
-      let middlewares = app.getMiddleware(MIDDLEWARE.VIEW, MIDDLEWARE_PROTOCOL.UNMOUNT);
+      let forceExcludeMiddleware = false;
+
+      if ('forceExcludeMiddleware' in view) {
+        forceExcludeMiddleware = (typeof view.forceExcludeMiddleware === 'function') ? view.forceExcludeMiddleware() : view.forceExcludeMiddleware;
+      }
+
+      let middlewares = forceExcludeMiddleware ? [] : app.getMiddleware(MIDDLEWARE.VIEW, MIDDLEWARE_PROTOCOL.UNMOUNT);
 
       MiddlewareRunner.run(middlewares, MIDDLEWARE_PROTOCOL.UNMOUNT, [this], function() {
         if (typeof view.viewWillUnmount === 'function') {
@@ -470,11 +488,25 @@ View = Backbone.View.extend({
   close(remove) {
     this._unbindModel();
 
-    let middlewares = app.getMiddleware(MIDDLEWARE.VIEW, MIDDLEWARE_PROTOCOL.UNMOUNT);
+    let forceExcludeMiddleware = false;
+
+    if ('forceExcludeMiddleware' in this) {
+      forceExcludeMiddleware = (typeof this.forceExcludeMiddleware === 'function') ? this.forceExcludeMiddleware() : this.forceExcludeMiddleware;
+    }
+
+    let middlewares = forceExcludeMiddleware ? [] : app.getMiddleware(MIDDLEWARE.VIEW, MIDDLEWARE_PROTOCOL.UNMOUNT);
 
     MiddlewareRunner.run(middlewares, MIDDLEWARE_PROTOCOL.UNMOUNT, [this], function() {
       if (typeof this.viewWillUnmount === 'function') {
         this.viewWillUnmount();
+      }
+
+      if (this.refs) {
+        Object.keys(this.refs).forEach(refName => {
+          if (Array.isArray(this.refs[refName])) {
+            this.refs[refName] = [];
+          }
+        });
       }
 
       this.dispatch(Woowahan.Event.create('unmount', this));
@@ -482,7 +514,7 @@ View = Backbone.View.extend({
 
       this._removeChild(remove);
 
-      if (remove + '' !== 'false' && !!this) {
+      if (remove + '' !== 'false' && !!this) {  
         this._unbindRef();
         this.remove();
       }
